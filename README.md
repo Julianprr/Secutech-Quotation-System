@@ -32,6 +32,28 @@ Alternatively, you can set `DB_HOST`, `DB_NAME`, `DB_USER`, and `DB_PASS` as env
 
 Upload all files to your web root (e.g. `public_html` on cPanel). Make sure `config/db.local.php` is uploaded too — it's excluded from git on purpose, so it has to be added to the server manually (or set via environment variables).
 
+### 4. AI Assistant (optional)
+
+The dashboard includes a chat assistant that can search customers/products and build quotations for you conversationally. To enable it:
+
+1. Sign up at [console.anthropic.com](https://console.anthropic.com) (separate from any claude.ai subscription — billed separately, pay-as-you-go).
+2. Create an API key under Settings → API Keys.
+3. Copy `config/api.local.example.php` to `config/api.local.php` and paste in your real key.
+4. Upload `config/api.local.php` to your server (it's git-ignored, so it won't come from GitHub).
+
+If no key is configured, the rest of the app works fine — the assistant will just show a setup message when opened.
+
+### 5. Email (optional, recommended)
+
+Quotations can be emailed directly to customers from the "Email to Customer" button. By default this uses PHP's built-in `mail()`, which works out of the box but can be inconsistent with deliverability. For reliable sending, connect a real mailbox instead:
+
+1. In cPanel, set up a mailbox (e.g. `quotes@yourdomain.co.za`) under Email Accounts.
+2. Click **Connect Devices** next to it to see the exact Outgoing Server host, port, and encryption type.
+3. Copy `config/mail.local.example.php` to `config/mail.local.php` and fill in those real details.
+4. Upload `config/mail.local.php` to your server (it's git-ignored, so it won't come from GitHub).
+
+If `config/mail.local.php` isn't present, the app automatically falls back to basic `mail()`.
+
 ## Project structure
 
 ```

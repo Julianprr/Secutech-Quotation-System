@@ -350,6 +350,39 @@ body {
     margin-top: 14px;
 }
 
+.totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    margin-top: 14px;
+}
+
+.totals-row .totals {
+    margin-top: 0;
+}
+
+.banking-inline {
+    flex: 1;
+    max-width: 340px;
+    font-size: 10px;
+    line-height: 1.55;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 10px 12px;
+}
+
+.banking-inline-title {
+    font-weight: bold;
+    color: #172d4d;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 2px solid #b5d900;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+}
+
 .total-row {
     display: flex;
     justify-content: space-between;
@@ -524,6 +557,15 @@ body {
     .totals {
         width: 100%;
     }
+
+    .totals-row {
+        flex-direction: column;
+    }
+
+    .banking-inline {
+        max-width: 100%;
+        width: 100%;
+    }
 }
 
 </style>
@@ -559,7 +601,20 @@ body {
     Print / Save PDF
 </button>
 
+<a class="back" href="../email/send.php?id=<?= (int)$quote['id'] ?>" style="background:#b5d900; color:#172d4d;">
+    ✉ Email to Customer
+</a>
+
 </div>
+
+
+<!-- EMAIL SUCCESS MESSAGE -->
+
+<?php if (isset($_GET['emailed'])): ?>
+<div style="width:210mm; margin:0 auto 15px auto; background:#dff5df; color:#216b21; padding:14px 20px; border-radius:6px; font-size:14px;">
+    Quotation emailed successfully.
+</div>
+<?php endif; ?>
 
 
 <!-- QUOTATION -->
@@ -817,23 +872,65 @@ body {
 </table>
 
 
-<!-- TOTALS -->
+<!-- TOTALS + BANKING DETAILS -->
 
-<div class="totals">
+<div class="totals-row">
 
-    <div class="total-row">
-        <span>Subtotal</span>
-        <strong><?= money($subtotal) ?></strong>
+    <?php if (!empty($company['bank_name']) || !empty($company['account_number'])): ?>
+
+    <div class="banking-inline">
+
+        <div class="banking-inline-title">
+            Banking Details
+        </div>
+
+        <?php if (!empty($company['account_holder'])): ?>
+        <strong>Account Holder:</strong> <?= e($company['account_holder']) ?><br>
+        <?php endif; ?>
+
+        <?php if (!empty($company['bank_name'])): ?>
+        <strong>Bank:</strong> <?= e($company['bank_name']) ?><br>
+        <?php endif; ?>
+
+        <?php if (!empty($company['account_number'])): ?>
+        <strong>Account Number:</strong> <?= e($company['account_number']) ?><br>
+        <?php endif; ?>
+
+        <?php if (!empty($company['branch_code'])): ?>
+        <strong>Branch Code:</strong> <?= e($company['branch_code']) ?><br>
+        <?php endif; ?>
+
+        <?php if (!empty($company['account_type'])): ?>
+        <strong>Account Type:</strong> <?= e($company['account_type']) ?><br>
+        <?php endif; ?>
+
+        <?php if (!empty($company['swift_code'])): ?>
+        <strong>SWIFT Code:</strong> <?= e($company['swift_code']) ?><br>
+        <?php endif; ?>
+
+        <strong>Reference:</strong> <?= e($quote['quote_number']) ?>
+
     </div>
 
-    <div class="total-row">
-        <span>VAT</span>
-        <strong><?= money($vat_total) ?></strong>
-    </div>
+    <?php endif; ?>
 
-    <div class="total-row grand">
-        <span>TOTAL</span>
-        <strong><?= money($grand_total) ?></strong>
+    <div class="totals" style="margin-top:0;">
+
+        <div class="total-row">
+            <span>Subtotal</span>
+            <strong><?= money($subtotal) ?></strong>
+        </div>
+
+        <div class="total-row">
+            <span>VAT</span>
+            <strong><?= money($vat_total) ?></strong>
+        </div>
+
+        <div class="total-row grand">
+            <span>TOTAL</span>
+            <strong><?= money($grand_total) ?></strong>
+        </div>
+
     </div>
 
 </div>
