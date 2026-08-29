@@ -1,0 +1,31 @@
+{
+  "name": "SecuTech Quotation System",
+  "short_name": "SecuTech",
+  "description": "Automated quotation and invoicing system for SecuTech SA",
+  "start_url": "/quotes/dashboard.php",
+  "scope": "/quotes/",
+  "display": "standalone",
+  "background_color": "#172d4d",
+  "theme_color": "#172d4d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/quotes/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/quotes/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/quotes/assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

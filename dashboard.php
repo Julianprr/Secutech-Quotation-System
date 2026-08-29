@@ -16,6 +16,11 @@ $user_role = $_SESSION['user_role'] ?? '';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SecuTech Quotation System</title>
 
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#172d4d">
+    <link rel="icon" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+
     <style>
         * {
             box-sizing: border-box;
@@ -478,6 +483,12 @@ $user_role = $_SESSION['user_role'] ?? '';
 <script>
 
 let assistantHistory = [];
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function (err) {
+        console.warn('Service worker registration failed:', err);
+    });
+}
 let assistantOpen = false;
 let voiceReplyEnabled = true;
 let handsFreeMode = false;
@@ -725,7 +736,7 @@ function toggleAssistant() {
     }
 }
 
-function appendAssistantMessage(text, cssClass, linkUrl) {
+function appendAssistantMessage(text, cssClass, linkUrl, linkLabel) {
     const container = document.getElementById('assistantMessages');
     const div = document.createElement('div');
     div.className = 'assistant-msg ' + cssClass;
@@ -735,7 +746,7 @@ function appendAssistantMessage(text, cssClass, linkUrl) {
         const link = document.createElement('a');
         link.href = linkUrl;
         link.className = 'assistant-link';
-        link.textContent = 'View Quotation →';
+        link.textContent = (linkLabel || 'View Quotation') + ' →';
         div.appendChild(document.createElement('br'));
         div.appendChild(link);
     }
@@ -781,9 +792,13 @@ async function sendAssistantMessage() {
 
         const linkUrl = data.quotation_id
             ? 'view/index.php?id=' + data.quotation_id
-            : null;
+            : data.invoice_id
+                ? 'invoices/index.php?id=' + data.invoice_id
+                : null;
 
-        appendAssistantMessage(data.reply, 'assistant-bot', linkUrl);
+        const linkLabel = data.quotation_id ? 'View Quotation' : (data.invoice_id ? 'View Invoice' : null);
+
+        appendAssistantMessage(data.reply, 'assistant-bot', linkUrl, linkLabel);
 
         speakAssistantReply(data.reply, function () {
             if (handsFreeMode) {
@@ -792,6 +807,12 @@ async function sendAssistantMessage() {
                 }, 400);
             }
         });
+
+        if (data.navigate_url) {
+            setTimeout(function () {
+                window.location.href = data.navigate_url;
+            }, 1200);
+        }
 
     } catch (err) {
 

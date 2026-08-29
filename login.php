@@ -13,6 +13,11 @@ if (isset($_SESSION['user_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secutech Quotation System</title>
 
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#172d4d">
+    <link rel="icon" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+
     <style>
         * {
             box-sizing: border-box;
