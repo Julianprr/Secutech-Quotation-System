@@ -115,9 +115,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_quote'])) {
 
             /* -----------------------------------------
                Generate next quotation number
+
+               Format: JP-YYYYMMDD-N
+               e.g. JP-20261229-1, JP-20261229-2, ...
+
+               N resets back to 1 at the start of each
+               new day and increments for every
+               quotation created that day.
             ----------------------------------------- */
 
-            $year = date('Y');
+            $today = date('Ymd');
+
+            $number_prefix = "JP-$today-";
 
             $stmt = $pdo->prepare("
                 SELECT quote_number
@@ -128,16 +137,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_quote'])) {
             ");
 
             $stmt->execute([
-                "QT-$year-%"
+                $number_prefix . '%'
             ]);
 
             $lastQuote = $stmt->fetchColumn();
 
             if ($lastQuote) {
 
-                $lastNumber = (int)substr($lastQuote, -4);
+                $lastSegment = substr(
+                    $lastQuote,
+                    strlen($number_prefix)
+                );
 
-                $nextNumber = $lastNumber + 1;
+                $nextNumber = (int)$lastSegment + 1;
 
             } else {
 
@@ -146,15 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_quote'])) {
             }
 
             $quote_number =
-                'QT-' .
-                $year .
-                '-' .
-                str_pad(
-                    $nextNumber,
-                    4,
-                    '0',
-                    STR_PAD_LEFT
-                );
+                $number_prefix .
+                $nextNumber;
 
 
             /* -----------------------------------------

@@ -545,6 +545,16 @@ body {
     ← Back to Quotations
 </a>
 
+<?php if (!empty($quote['converted_invoice_id'])): ?>
+<a class="back" href="../invoices/index.php?id=<?= (int)$quote['converted_invoice_id'] ?>" style="background:#172d4d; color:#fff;">
+    View Invoice
+</a>
+<?php else: ?>
+<a class="back" href="../invoices/convert.php?quote_id=<?= (int)$quote['id'] ?>" style="background:#172d4d; color:#fff;">
+    Convert to Invoice
+</a>
+<?php endif; ?>
+
 <button class="print" onclick="window.print()">
     Print / Save PDF
 </button>
@@ -570,7 +580,7 @@ body {
         >
 
         <div class="tagline">
-            Security Systems &amp; Solutions
+            Your One Stop Solution for Security and IT
         </div>
 
         <div class="services">
@@ -911,7 +921,7 @@ body {
 <div class="footer">
 
     <div class="slogan">
-        Securing What Matters
+        Entigration of Technology and Security into your life and business
     </div>
 
     <div class="services-footer">

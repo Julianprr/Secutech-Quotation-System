@@ -209,6 +209,21 @@ $user_role = $_SESSION['user_role'] ?? '';
 
         </a>
 
+
+        <!-- INVOICES -->
+
+        <a class="card" href="invoices/list.php">
+
+            <div class="icon">🧾</div>
+
+            <h3>Invoices</h3>
+
+            <p>
+                View invoices and track payment status.
+            </p>
+
+        </a>
+
     </div>
 
 </div>
