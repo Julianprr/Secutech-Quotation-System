@@ -44,6 +44,18 @@ if (!is_array($conversation) || empty($conversation)) {
 
 
 /* =================================================
+   PREFERRED SUPPLIERS
+   Add more domains here as needed - the assistant's
+   web search is restricted to only these sites.
+================================================= */
+
+$preferred_supplier_domains = [
+    'communica.co.za',
+    'alcell.co.za',
+];
+
+
+/* =================================================
    TOOL DEFINITIONS
 ================================================= */
 
@@ -124,7 +136,13 @@ $tools = [
         'description' => 'Add a single line item to an existing quotation. Call ' .
             'this once per item. The quotation totals are recalculated ' .
             'automatically after each call. Only call this after the user has ' .
-            'confirmed the item, quantity, and price.',
+            'confirmed the item, quantity, and price. You can either give ' .
+            'unit_price directly, or give cost_price plus margin_percent and ' .
+            'the selling price will be calculated automatically so that ' .
+            'margin_percent equals the profit as a percentage of the selling ' .
+            'price (true margin) - use whichever the user described. Cost ' .
+            'and margin are stored for the user\'s own reference only and are ' .
+            'never shown to the customer on any quote, invoice, or email.',
         'input_schema' => [
             'type' => 'object',
             'properties' => [
@@ -138,7 +156,23 @@ $tools = [
                 'item_code'    => ['type' => 'string'],
                 'description'  => ['type' => 'string'],
                 'quantity'     => ['type' => 'number'],
-                'unit_price'   => ['type' => 'number'],
+                'unit_price'   => [
+                    'type' => 'number',
+                    'description' => 'Selling price per unit. Omit if giving ' .
+                        'cost_price and margin_percent instead.',
+                ],
+                'cost_price'   => [
+                    'type' => 'number',
+                    'description' => 'What this item costs the business, per ' .
+                        'unit. Internal only, never shown to the customer.',
+                ],
+                'margin_percent' => [
+                    'type' => 'number',
+                    'description' => 'Margin percentage as a share of the ' .
+                        'selling price (not of cost), e.g. 25 for a 25% margin. ' .
+                        'Used with cost_price to calculate unit_price ' .
+                        'automatically as cost_price / (1 - margin_percent/100).',
+                ],
                 'discount'     => [
                     'type' => 'number',
                     'description' => 'Percentage discount, 0-100. Default 0.',
@@ -148,7 +182,7 @@ $tools = [
                     'description' => '15 for standard VAT, 0 for zero-rated. Default 15.',
                 ],
             ],
-            'required' => ['quotation_id', 'description', 'quantity', 'unit_price'],
+            'required' => ['quotation_id', 'description', 'quantity'],
         ],
     ],
     [
@@ -419,7 +453,7 @@ $tools = [
             'for questions about outstanding money or unpaid invoices.',
         'input_schema' => [
             'type' => 'object',
-            'properties' => [],
+            'properties' => new stdClass(),
         ],
     ],
     [
@@ -456,12 +490,25 @@ $tools = [
     ],
 ];
 
+/*
+ * Web search, restricted to preferred supplier sites only. This is a
+ * server-side tool - Anthropic runs the search itself, so there's no
+ * PHP handler function for it (unlike the tools above).
+ */
+$tools[] = [
+    'type' => 'web_search_20250305',
+    'name' => 'web_search',
+    'max_uses' => 5,
+    'allowed_domains' => $preferred_supplier_domains,
+];
+
 
 /* =================================================
    SYSTEM PROMPT
 ================================================= */
 
 $today = date('Y-m-d');
+$supplier_list = implode(', ', $preferred_supplier_domains);
 
 $system_prompt = <<<PROMPT
 You are a helpful assistant built into the Secutech Quotation System, a South
@@ -480,6 +527,14 @@ Rules you must follow:
   exists in the catalogue (for correct pricing and item code). If nothing
   matches, ask the user for a price, or add it as a custom item if they give
   you one directly.
+- If the user gives a cost and a margin instead of a selling price (e.g.
+  "cost 10, 25% margin"), pass cost_price and margin_percent to
+  add_quotation_item rather than calculating unit_price yourself - the
+  system computes the selling price so that margin_percent is the profit
+  as a percentage of the selling price (true margin, not markup on cost).
+  Confirm the resulting selling price with the user before adding. Never mention cost
+  or margin figures as if they were customer-facing information - they are
+  for the user's own reference only.
 - Before calling create_customer, create_quotation, add_quotation_item,
   update_quotation_item, remove_quotation_item, or create_product, briefly
   summarize exactly what you are about to create, change, or add, and wait for
@@ -521,6 +576,16 @@ Rules you must follow:
 - Reply in whichever language the user writes or speaks to you in (English,
   Afrikaans, or otherwise) - match their language naturally throughout the
   conversation.
+- You can search the web, but only across the user's preferred supplier
+  sites: {$supplier_list}. Use this when asked to find an item, check a
+  price, or compare pricing between suppliers. Report back the price, a
+  short description, and which supplier it came from for each result found.
+  If prices differ between suppliers, point out which is cheaper. Do not
+  search any other websites. If nothing relevant is found on these sites,
+  say so plainly rather than guessing or searching elsewhere.
+- If the user wants to add something found via web search into the product
+  catalogue, confirm the exact description and price with them first, then
+  call create_product as usual.
 - Keep your responses short and conversational. Ask only one question at a
   time when you need more information.
 - Write in plain sentences only - never use markdown formatting: no
@@ -732,9 +797,22 @@ function tool_add_quotation_item(PDO $pdo, array $input): array
     $item_code   = trim($input['item_code'] ?? 'CUSTOM');
     $description = trim($input['description'] ?? '');
     $quantity    = (float)($input['quantity'] ?? 1);
-    $unit_price  = (float)($input['unit_price'] ?? 0);
     $discount    = (float)($input['discount'] ?? 0);
     $vat_rate    = (float)($input['vat_rate'] ?? 15);
+
+    $cost_price = isset($input['cost_price']) ? (float)$input['cost_price'] : null;
+    $margin_percent = isset($input['margin_percent']) ? (float)$input['margin_percent'] : null;
+
+    if (isset($input['unit_price'])) {
+        $unit_price = (float)$input['unit_price'];
+    } elseif ($cost_price !== null && $margin_percent !== null) {
+        if ($margin_percent >= 100) {
+            return ['error' => 'margin_percent must be less than 100'];
+        }
+        $unit_price = $cost_price / (1 - ($margin_percent / 100));
+    } else {
+        return ['error' => 'Provide either unit_price, or both cost_price and margin_percent.'];
+    }
 
     if ($description === '') {
         return ['error' => 'description is required'];
@@ -761,23 +839,25 @@ function tool_add_quotation_item(PDO $pdo, array $input): array
     $stmt = $pdo->prepare("
         INSERT INTO quotation_items
         (quotation_id, product_id, section_id, item_code, description,
-         quantity, unit_price, discount, vat_rate, line_total, sort_order)
+         quantity, unit_price, cost_price, margin_percent, discount, vat_rate, line_total, sort_order)
         VALUES
         (:quotation_id, :product_id, NULL, :item_code, :description,
-         :quantity, :unit_price, :discount, :vat_rate, :line_total, :sort_order)
+         :quantity, :unit_price, :cost_price, :margin_percent, :discount, :vat_rate, :line_total, :sort_order)
     ");
 
     $stmt->execute([
-        ':quotation_id' => $quotation_id,
-        ':product_id'   => $product_id,
-        ':item_code'    => $item_code,
-        ':description'  => $description,
-        ':quantity'     => $quantity,
-        ':unit_price'   => $unit_price,
-        ':discount'     => $discount,
-        ':vat_rate'     => $vat_rate,
-        ':line_total'   => $line_total,
-        ':sort_order'   => $sort_order,
+        ':quotation_id'    => $quotation_id,
+        ':product_id'      => $product_id,
+        ':item_code'       => $item_code,
+        ':description'     => $description,
+        ':quantity'        => $quantity,
+        ':unit_price'      => $unit_price,
+        ':cost_price'      => $cost_price,
+        ':margin_percent'  => $margin_percent,
+        ':discount'        => $discount,
+        ':vat_rate'        => $vat_rate,
+        ':line_total'      => $line_total,
+        ':sort_order'      => $sort_order,
     ]);
 
     /* Recalculate quotation totals */
@@ -787,6 +867,7 @@ function tool_add_quotation_item(PDO $pdo, array $input): array
     return array_merge(
         [
             'item_added'   => $description,
+            'unit_price'   => round($unit_price, 2),
             'line_total'   => round($line_total, 2),
             'quotation_id' => $quotation_id,
         ],

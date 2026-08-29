@@ -248,6 +248,11 @@ $quotations = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                href="index.php?id=<?= (int)$quote['id'] ?>">
                                 View
                             </a>
+                            <a class="view"
+                               style="background:#172d4d; margin-left:6px;"
+                               href="../items/index.php?id=<?= (int)$quote['id'] ?>">
+                                Edit
+                            </a>
                         </td>
 
                     </tr>

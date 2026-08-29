@@ -167,6 +167,12 @@ function e(?string $value): string
         <a class="button" href="add.php">+ Add Customer</a>
     </div>
 
+    <?php if (isset($_GET['deleted'])): ?>
+    <div style="background:#dff5df; color:#216b21; padding:12px 16px; border-radius:6px; margin-bottom:15px; font-size:14px;">
+        Customer deleted successfully.
+    </div>
+    <?php endif; ?>
+
     <div class="table-container">
         <?php if (!empty($customers)): ?>
             <table>
@@ -190,6 +196,7 @@ function e(?string $value): string
                             <td><?= e($customer['vat_number'] ?? '') ?></td>
                             <td class="action-cell">
                                 <a class="button" href="edit.php?id=<?= (int)($customer['id'] ?? 0) ?>">Edit</a>
+                                <a class="button" style="background:#a00000;" href="delete.php?id=<?= (int)($customer['id'] ?? 0) ?>">Delete</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

@@ -761,6 +761,10 @@ if ($quote_id <= 0) {
                 Customers
             </a>
 
+            <a href="import.php">
+                Import Price List
+            </a>
+
         </div>
 
     </div>
@@ -1474,6 +1478,54 @@ if (!$quote) {
 
 
 /* -------------------------------------------------
+   UPDATE QUOTE DETAILS
+------------------------------------------------- */
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['update_quote_details'])
+) {
+
+    $new_status = trim($_POST['status'] ?? 'Draft');
+    $new_valid_until = trim($_POST['valid_until'] ?? '');
+    $new_sales_person = trim($_POST['sales_person'] ?? '');
+    $new_payment_terms = trim($_POST['payment_terms'] ?? '');
+    $new_notes = trim($_POST['notes'] ?? '');
+
+    $allowed_statuses = ['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired'];
+
+    if (!in_array($new_status, $allowed_statuses, true)) {
+        $new_status = 'Draft';
+    }
+
+    $stmt = $pdo->prepare("
+        UPDATE quotations
+        SET status = ?, valid_until = ?, sales_person = ?, payment_terms = ?, notes = ?, updated_at = NOW()
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $new_status,
+        $new_valid_until !== '' ? $new_valid_until : null,
+        $new_sales_person,
+        $new_payment_terms,
+        $new_notes,
+        $quote_id,
+    ]);
+
+    /* Refresh in-memory quote data so the page reflects the change immediately */
+    $quote['status'] = $new_status;
+    $quote['valid_until'] = $new_valid_until !== '' ? $new_valid_until : $quote['valid_until'];
+    $quote['sales_person'] = $new_sales_person;
+    $quote['payment_terms'] = $new_payment_terms;
+    $quote['notes'] = $new_notes;
+
+    $success = 'Quote details updated.';
+
+}
+
+
+/* -------------------------------------------------
    ADD ITEM
 ------------------------------------------------- */
 
@@ -1501,6 +1553,14 @@ if (
     $unit_price = (float)(
         $_POST['unit_price'] ?? 0
     );
+
+    $cost_price = ($_POST['cost_price'] ?? '') !== ''
+        ? (float)$_POST['cost_price']
+        : null;
+
+    $margin_percent = ($_POST['margin_percent'] ?? '') !== ''
+        ? (float)$_POST['margin_percent']
+        : null;
 
     $discount = (float)(
         $_POST['discount'] ?? 0
@@ -1571,6 +1631,8 @@ if (
                 description,
                 quantity,
                 unit_price,
+                cost_price,
+                margin_percent,
                 discount,
                 vat_rate,
                 line_total,
@@ -1585,6 +1647,8 @@ if (
                 :description,
                 :quantity,
                 :unit_price,
+                :cost_price,
+                :margin_percent,
                 :discount,
                 :vat_rate,
                 :line_total,
@@ -1612,6 +1676,12 @@ if (
 
             ':unit_price' =>
                 $unit_price,
+
+            ':cost_price' =>
+                $cost_price,
+
+            ':margin_percent' =>
+                $margin_percent,
 
             ':discount' =>
                 $discount,
@@ -1730,6 +1800,115 @@ if (
 
         $success =
             'Item added successfully.';
+
+    }
+
+}
+
+
+/* -------------------------------------------------
+   UPDATE ITEM
+------------------------------------------------- */
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['update_item'])
+) {
+
+    $edit_item_id = (int)($_POST['edit_item_id'] ?? 0);
+
+    $item_code = trim($_POST['item_code'] ?? 'CUSTOM');
+    $description = trim($_POST['description'] ?? '');
+    $quantity = (float)($_POST['quantity'] ?? 1);
+
+    $cost_price = ($_POST['cost_price'] ?? '') !== ''
+        ? (float)$_POST['cost_price']
+        : null;
+
+    $margin_percent = ($_POST['margin_percent'] ?? '') !== ''
+        ? (float)$_POST['margin_percent']
+        : null;
+
+    $unit_price = (float)($_POST['unit_price'] ?? 0);
+    $discount = (float)($_POST['discount'] ?? 0);
+    $vat_rate = (float)($_POST['vat_rate'] ?? 15);
+
+    if ($edit_item_id <= 0) {
+
+        $error = 'Could not identify which item to update.';
+
+    } elseif ($description === '') {
+
+        $error = 'Please enter a description.';
+
+    } elseif ($quantity <= 0) {
+
+        $error = 'Quantity must be greater than zero.';
+
+    } else {
+
+        $line_total = $quantity * $unit_price;
+
+        if ($discount > 0) {
+            $line_total -= $line_total * ($discount / 100);
+        }
+
+        $stmt = $pdo->prepare("
+            UPDATE quotation_items
+            SET item_code = :item_code,
+                description = :description,
+                quantity = :quantity,
+                unit_price = :unit_price,
+                cost_price = :cost_price,
+                margin_percent = :margin_percent,
+                discount = :discount,
+                vat_rate = :vat_rate,
+                line_total = :line_total
+            WHERE id = :id AND quotation_id = :quotation_id
+        ");
+
+        $stmt->execute([
+            ':item_code'       => $item_code,
+            ':description'     => $description,
+            ':quantity'        => $quantity,
+            ':unit_price'      => $unit_price,
+            ':cost_price'      => $cost_price,
+            ':margin_percent'  => $margin_percent,
+            ':discount'        => $discount,
+            ':vat_rate'        => $vat_rate,
+            ':line_total'      => $line_total,
+            ':id'              => $edit_item_id,
+            ':quotation_id'    => $quote_id,
+        ]);
+
+        /* Recalculate quote totals */
+
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(line_total), 0)
+            FROM quotation_items
+            WHERE quotation_id = ?
+        ");
+        $stmt->execute([$quote_id]);
+        $new_subtotal = (float)$stmt->fetchColumn();
+
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(line_total * vat_rate / 100), 0)
+            FROM quotation_items
+            WHERE quotation_id = ?
+        ");
+        $stmt->execute([$quote_id]);
+        $new_vat = (float)$stmt->fetchColumn();
+
+        $new_total = $new_subtotal + $new_vat;
+
+        $stmt = $pdo->prepare("
+            UPDATE quotations
+            SET subtotal = ?, vat_amount = ?, total = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$new_subtotal, $new_vat, $new_total, $quote_id]);
+
+        $success = 'Item updated.';
 
     }
 
@@ -1893,6 +2072,30 @@ $items =
     $stmt->fetchAll(
         PDO::FETCH_ASSOC
     );
+
+
+/* -------------------------------------------------
+   INTERNAL-ONLY PROFIT SUMMARY
+   (never shown to customers - not selected on any
+   customer-facing quote/invoice/PDF/email query)
+------------------------------------------------- */
+
+$total_cost = 0.0;
+$total_sell_excl_vat = 0.0;
+$has_cost_data = false;
+
+foreach ($items as $item) {
+    if ($item['cost_price'] !== null) {
+        $has_cost_data = true;
+        $total_cost += (float)$item['cost_price'] * (float)$item['quantity'];
+    }
+    $total_sell_excl_vat += (float)$item['line_total'];
+}
+
+$total_profit = $total_sell_excl_vat - $total_cost;
+$overall_margin_percent = $total_sell_excl_vat > 0
+    ? ($total_profit / $total_sell_excl_vat) * 100
+    : 0;
 
 ?>
 
@@ -2233,6 +2436,26 @@ td {
 }
 
 
+.edit-item-button {
+
+    background: #172d4d;
+
+    color: white;
+
+    border: none;
+
+    padding: 7px 10px;
+
+    font-size: 12px;
+
+    border-radius: 4px;
+
+    cursor: pointer;
+
+    margin-right: 6px;
+}
+
+
 .totals {
 
     margin-left: auto;
@@ -2380,6 +2603,10 @@ td {
 
         <a href="../items/index.php">
             Items
+        </a>
+
+        <a href="import.php">
+            Import Price List
         </a>
 
     </div>
@@ -2532,23 +2759,92 @@ td {
 
 
 <!-- =========================================
+     EDIT QUOTE DETAILS
+========================================= -->
+
+<div class="card">
+
+<h3 style="cursor:pointer;" onclick="toggleDetailsForm()">
+    Edit Quote Details <span id="detailsToggleArrow">▸</span>
+</h3>
+
+<div id="detailsFormWrap" style="display:none;">
+
+<form method="POST">
+
+<input type="hidden" name="quote_id" value="<?= $quote_id ?>">
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>Status</label>
+<select name="status">
+<?php foreach (['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired'] as $status_option): ?>
+<option value="<?= $status_option ?>" <?= ($quote['status'] ?? 'Draft') === $status_option ? 'selected' : '' ?>>
+    <?= $status_option ?>
+</option>
+<?php endforeach; ?>
+</select>
+</div>
+
+<div class="form-group">
+<label>Valid Until</label>
+<input type="date" name="valid_until" value="<?= htmlspecialchars($quote['valid_until']) ?>">
+</div>
+
+<div class="form-group">
+<label>Sales Person</label>
+<input type="text" name="sales_person" value="<?= htmlspecialchars($quote['sales_person'] ?? '') ?>">
+</div>
+
+<div class="form-group">
+<label>Payment Terms</label>
+<input type="text" name="payment_terms" value="<?= htmlspecialchars($quote['payment_terms'] ?? '') ?>">
+</div>
+
+<div class="form-group full">
+<label>Notes</label>
+<textarea name="notes" rows="3" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-family:inherit; box-sizing:border-box;"><?= htmlspecialchars($quote['notes'] ?? '') ?></textarea>
+</div>
+
+</div>
+
+<button type="submit" name="update_quote_details" class="add-button">
+    Save Quote Details
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+
+<!-- =========================================
      ADD ITEM
 ========================================= -->
 
 <div class="card">
 
-<h3>
+<h3 id="itemFormHeading">
     Add Item
 </h3>
 
 
-<form method="POST">
+<form method="POST" id="itemForm">
 
 
 <input
     type="hidden"
     name="quote_id"
     value="<?= $quote_id ?>"
+>
+
+<input
+    type="hidden"
+    name="edit_item_id"
+    id="edit_item_id"
+    value=""
 >
 
 
@@ -2646,6 +2942,49 @@ td {
     name="item_code"
     id="item_code"
     value="CUSTOM"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label>
+    Cost (internal only)
+</label>
+
+
+<input
+    type="number"
+    name="cost_price"
+    id="cost_price"
+    value=""
+    min="0"
+    step="0.01"
+    placeholder="e.g. 10.00"
+    oninput="recalcMarkupPrice()"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label>
+    Margin % of selling price (internal only)
+</label>
+
+
+<input
+    type="number"
+    name="margin_percent"
+    id="margin_percent"
+    value=""
+    min="0"
+    max="99.99"
+    step="0.01"
+    placeholder="e.g. 25"
+    oninput="recalcMarkupPrice()"
 >
 
 </div>
@@ -2758,10 +3097,23 @@ td {
 <button
     type="submit"
     name="add_item"
+    id="itemSubmitButton"
     class="add-button"
 >
 
     + Add Item
+
+</button>
+
+<button
+    type="button"
+    id="cancelEditButton"
+    class="add-button"
+    style="display:none; background:#888; margin-left:10px;"
+    onclick="cancelEditItem()"
+>
+
+    Cancel Edit
 
 </button>
 
@@ -2956,6 +3308,26 @@ td {
 </form>
 
 
+<button
+    type="button"
+    class="edit-item-button"
+    onclick="startEditItem(<?= (int)$item['id'] ?>, <?= htmlspecialchars(json_encode([
+        'item_code'      => $item['item_code'],
+        'description'    => $item['description'],
+        'quantity'       => $item['quantity'],
+        'unit_price'     => $item['unit_price'],
+        'cost_price'     => $item['cost_price'],
+        'margin_percent' => $item['margin_percent'],
+        'discount'       => $item['discount'],
+        'vat_rate'       => $item['vat_rate'],
+    ]), ENT_QUOTES, 'UTF-8') ?>)"
+>
+
+    Edit
+
+</button>
+
+
 </td>
 
 
@@ -3034,6 +3406,34 @@ td {
 </div>
 
 
+<?php if ($has_cost_data): ?>
+
+<div class="totals" style="margin-top:15px; background:#fff8e1; border:1px dashed #d4a017;">
+
+<div style="font-size:12px; font-weight:bold; color:#8a6400; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;">
+    Internal Only - Not Shown to Customer
+</div>
+
+<div class="total-row">
+<span>Total Cost</span>
+<strong>R <?= number_format($total_cost, 2) ?></strong>
+</div>
+
+<div class="total-row">
+<span>Total Profit</span>
+<strong>R <?= number_format($total_profit, 2) ?></strong>
+</div>
+
+<div class="total-row">
+<span>Overall Margin</span>
+<strong><?= number_format($overall_margin_percent, 1) ?>%</strong>
+</div>
+
+</div>
+
+<?php endif; ?>
+
+
 <?php endif; ?>
 
 
@@ -3070,6 +3470,85 @@ td {
 
 
 <script>
+
+
+/* =========================================
+   TOGGLE QUOTE DETAILS FORM
+========================================= */
+
+function toggleDetailsForm() {
+    const wrap = document.getElementById('detailsFormWrap');
+    const arrow = document.getElementById('detailsToggleArrow');
+    const isHidden = wrap.style.display === 'none';
+    wrap.style.display = isHidden ? 'block' : 'none';
+    arrow.textContent = isHidden ? '▾' : '▸';
+}
+
+
+/* =========================================
+   EDIT EXISTING LINE ITEM
+========================================= */
+
+function startEditItem(itemId, data) {
+
+    document.getElementById('edit_item_id').value = itemId;
+
+    document.getElementById('item_code').value = data.item_code || 'CUSTOM';
+    document.getElementById('description').value = data.description || '';
+    document.getElementById('quantity').value = data.quantity || 1;
+    document.getElementById('unit_price').value = data.unit_price || 0;
+    document.getElementById('cost_price').value = data.cost_price !== null ? data.cost_price : '';
+    document.getElementById('margin_percent').value = data.margin_percent !== null ? data.margin_percent : '';
+    document.getElementById('discount').value = data.discount || 0;
+    document.getElementById('vat_rate').value = data.vat_rate || 15;
+
+    const submitBtn = document.getElementById('itemSubmitButton');
+    submitBtn.name = 'update_item';
+    submitBtn.textContent = 'Save Changes';
+
+    document.getElementById('itemFormHeading').textContent = 'Edit Item';
+    document.getElementById('cancelEditButton').style.display = 'inline-block';
+
+    document.getElementById('itemForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+}
+
+function cancelEditItem() {
+
+    document.getElementById('edit_item_id').value = '';
+    document.getElementById('itemForm').reset();
+
+    const submitBtn = document.getElementById('itemSubmitButton');
+    submitBtn.name = 'add_item';
+    submitBtn.textContent = '+ Add Item';
+
+    document.getElementById('itemFormHeading').textContent = 'Add Item';
+    document.getElementById('cancelEditButton').style.display = 'none';
+
+}
+
+
+/* =========================================
+   COST + MARGIN -> UNIT PRICE (true margin calc)
+   Margin % is a percentage of the SELLING PRICE,
+   e.g. cost 10, margin 25% -> price 13.33
+========================================= */
+
+function recalcMarkupPrice() {
+
+    const costInput = document.getElementById('cost_price');
+    const marginInput = document.getElementById('margin_percent');
+    const priceInput = document.getElementById('unit_price');
+
+    const cost = parseFloat(costInput.value);
+    const margin = parseFloat(marginInput.value);
+
+    if (!isNaN(cost) && !isNaN(margin) && margin < 100) {
+        const price = cost / (1 - (margin / 100));
+        priceInput.value = price.toFixed(2);
+    }
+
+}
 
 
 /* =========================================

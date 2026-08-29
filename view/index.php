@@ -587,6 +587,10 @@ body {
     ← Back to Quotations
 </a>
 
+<a class="back" href="../items/index.php?id=<?= (int)$quote['id'] ?>" style="background:#172d4d; color:#fff;">
+    ✎ Edit Quotation
+</a>
+
 <?php if (!empty($quote['converted_invoice_id'])): ?>
 <a class="back" href="../invoices/index.php?id=<?= (int)$quote['converted_invoice_id'] ?>" style="background:#172d4d; color:#fff;">
     View Invoice
