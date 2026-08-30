@@ -44,6 +44,8 @@ function e(?string $value): string
             color: white;
             padding: 20px 30px;
             display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
             justify-content: space-between;
             align-items: center;
         }
@@ -175,6 +177,7 @@ function e(?string $value): string
 
     <div class="table-container">
         <?php if (!empty($customers)): ?>
+            <div style="overflow-x:auto;">
             <table>
                 <thead>
                     <tr>
@@ -202,6 +205,7 @@ function e(?string $value): string
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         <?php else: ?>
             <div class="empty">
                 <h3>No customers yet</h3>

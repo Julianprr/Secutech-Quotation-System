@@ -52,6 +52,8 @@ $quotations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
             padding: 20px 35px;
             display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
             justify-content: space-between;
             align-items: center;
         }

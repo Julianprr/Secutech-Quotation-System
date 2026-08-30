@@ -204,6 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['run_import'])) {
             color: white;
             padding: 14px 30px;
             display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
             justify-content: space-between;
             align-items: center;
         }

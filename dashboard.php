@@ -38,6 +38,8 @@ $user_role = $_SESSION['user_role'] ?? '';
             color: white;
             padding: 20px 35px;
             display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
             justify-content: space-between;
             align-items: center;
         }
@@ -240,6 +242,21 @@ $user_role = $_SESSION['user_role'] ?? '';
 
             <p>
                 Book site visits and calls straight into Google Calendar.
+            </p>
+
+        </a>
+
+
+        <!-- EXPENSES -->
+
+        <a class="card" href="expenses/index.php">
+
+            <div class="icon">🧾</div>
+
+            <h3>Expenses</h3>
+
+            <p>
+                Snap a photo of a supplier receipt to track your spending.
             </p>
 
         </a>

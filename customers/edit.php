@@ -126,6 +126,8 @@ body {
     color: white;
     padding: 20px 30px;
     display: flex;
+    flex-wrap: wrap;
+    row-gap: 10px;
     justify-content: space-between;
     align-items: center;
 }

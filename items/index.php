@@ -409,6 +409,8 @@ if ($quote_id <= 0) {
         padding: 14px 30px;
 
         display: flex;
+        flex-wrap: wrap;
+        row-gap: 10px;
 
         justify-content: space-between;
 
@@ -2159,6 +2161,8 @@ body {
     padding: 14px 30px;
 
     display: flex;
+    flex-wrap: wrap;
+    row-gap: 10px;
 
     justify-content: space-between;
 
@@ -3144,6 +3148,7 @@ td {
 <?php else: ?>
 
 
+<div style="overflow-x:auto;">
 <table>
 
 
@@ -3341,6 +3346,7 @@ td {
 
 
 </table>
+</div>
 
 
 <div class="totals">

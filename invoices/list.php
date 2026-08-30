@@ -49,6 +49,8 @@ $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
             padding: 14px 30px;
             display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
             justify-content: space-between;
             align-items: center;
         }
