@@ -180,7 +180,7 @@ function generate_invoice_pdf(array $company, array $invoice, array $items, floa
     $pdf->line(12, $footer_y, 198, $footer_y, 0.5);
     $footer_y += 6;
     $pdf->setColor($NAVY);
-    $pdf->textCentered(105, $footer_y, 'Entigration of Technology and Security into your life and business', 9, true);
+    $pdf->textCentered(105, $footer_y, 'Integration of Technology and Security into your life and business', 9, true);
     $footer_y += 5;
     $pdf->setColor('#666666');
     $pdf->textCentered(105, $footer_y, $legal_name . '  |  Trading as ' . $company_name, 8);

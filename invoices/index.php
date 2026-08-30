@@ -618,6 +618,12 @@ body {
 
 @media print {
 
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
     body {
         background: #fff;
     }
@@ -644,7 +650,7 @@ body {
 
 /* MOBILE */
 
-@media(max-width: 800px) {
+@media screen and (max-width: 800px) {
 
     .page {
         width: 100%;
@@ -1247,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', toggleDepositField);
 <div class="footer">
 
     <div class="slogan">
-        Entigration of Technology and Security into your life and business
+        Integration of Technology and Security into your life and business
     </div>
 
     <div class="services-footer">

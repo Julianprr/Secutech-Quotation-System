@@ -230,6 +230,21 @@ $user_role = $_SESSION['user_role'] ?? '';
         </a>
 
 
+        <!-- APPOINTMENTS -->
+
+        <a class="card" href="appointments/index.php">
+
+            <div class="icon">📅</div>
+
+            <h3>Appointments</h3>
+
+            <p>
+                Book site visits and calls straight into Google Calendar.
+            </p>
+
+        </a>
+
+
         <!-- AI ASSISTANT -->
 
         <button type="button" class="card" onclick="toggleAssistant()" style="text-align:left; cursor:pointer; font-family:inherit; font-size:inherit; border:none; background:white; width:100%; box-sizing:border-box; display:block;">

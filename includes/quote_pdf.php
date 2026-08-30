@@ -289,7 +289,7 @@ function generate_quote_pdf(array $company, array $quote, array $items, float $s
     $footer_y += 6;
 
     $pdf->setColor($NAVY);
-    $pdf->textCentered(105, $footer_y, 'Entigration of Technology and Security into your life and business', 9, true);
+    $pdf->textCentered(105, $footer_y, 'Integration of Technology and Security into your life and business', 9, true);
     $footer_y += 5;
 
     $pdf->setColor('#666666');

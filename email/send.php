@@ -103,7 +103,7 @@ function build_quote_email_html(array $company, array $quote, string $note): str
     </div>
 
     <div style="background:#f4f5f7; padding:16px; text-align:center; font-size:11px; color:#666;">
-        Entigration of Technology and Security into your life and business<br>
+        Integration of Technology and Security into your life and business<br>
         <?= htmlspecialchars($legal_name) ?> &nbsp;|&nbsp; Trading as <?= htmlspecialchars($company_name) ?>
     </div>
 

@@ -14,6 +14,8 @@ require_once __DIR__ . '/../config/mail.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/quote_pdf.php';
 require_once __DIR__ . '/../includes/invoice_pdf.php';
+require_once __DIR__ . '/../config/google.php';
+require_once __DIR__ . '/../includes/google_calendar.php';
 
 header('Content-Type: application/json');
 
@@ -470,6 +472,58 @@ $tools = [
     ],
 
 
+    /* ===== APPOINTMENTS ===== */
+
+    [
+        'name' => 'create_appointment',
+        'description' => 'Book an appointment (site visit, installation, call, ' .
+            'etc.) directly into the user\'s connected Google Calendar. Only ' .
+            'call this after the user has confirmed the title, date, time, and ' .
+            'duration. If Google Calendar isn\'t connected, this will return an ' .
+            'error explaining that - tell the user to connect it from the ' .
+            'Appointments page.',
+        'input_schema' => [
+            'type' => 'object',
+            'properties' => [
+                'title' => [
+                    'type' => 'string',
+                    'description' => 'e.g. "Site survey - Rainbow Electrical"',
+                ],
+                'date' => [
+                    'type' => 'string',
+                    'description' => 'YYYY-MM-DD',
+                ],
+                'start_time' => [
+                    'type' => 'string',
+                    'description' => '24-hour HH:MM, e.g. "14:30"',
+                ],
+                'duration_minutes' => [
+                    'type' => 'integer',
+                    'description' => 'Default 60 if not specified.',
+                ],
+                'location' => ['type' => 'string'],
+                'notes' => ['type' => 'string'],
+            ],
+            'required' => ['title', 'date', 'start_time'],
+        ],
+    ],
+    [
+        'name' => 'get_appointments',
+        'description' => 'Look up upcoming appointments from the user\'s Google ' .
+            'Calendar within a given number of days from now. Use this for ' .
+            'questions like "what\'s on today" or "what do I have this week".',
+        'input_schema' => [
+            'type' => 'object',
+            'properties' => [
+                'days_ahead' => [
+                    'type' => 'integer',
+                    'description' => 'How many days ahead to look. Default 1 (today only).',
+                ],
+            ],
+        ],
+    ],
+
+
     /* ===== NAVIGATION ===== */
 
     [
@@ -482,7 +536,7 @@ $tools = [
             'properties' => [
                 'page' => [
                     'type' => 'string',
-                    'enum' => ['dashboard', 'customers', 'items', 'create_quote', 'quotations', 'invoices'],
+                    'enum' => ['dashboard', 'customers', 'items', 'create_quote', 'quotations', 'invoices', 'appointments'],
                 ],
             ],
             'required' => ['page'],
@@ -573,6 +627,14 @@ Rules you must follow:
 - If the user asks to be taken to a page (e.g. "open invoices", "take me to
   customers"), call navigate_to_page. This is a UI action, not a data change,
   so no confirmation is needed first.
+- To book a site visit, call, or any other appointment, use create_appointment
+  after confirming the title, date, time, and duration with the user - this
+  goes straight into their connected Google Calendar. To check what's
+  scheduled (e.g. "what's on today", "what do I have this week"), use
+  get_appointments, which is read-only and needs no confirmation. If
+  create_appointment or get_appointments returns an error about Google
+  Calendar not being connected, tell the user to connect it from the
+  Appointments page in the app.
 - Reply in whichever language the user writes or speaks to you in (English,
   Afrikaans, or otherwise) - match their language naturally throughout the
   conversation.
@@ -650,6 +712,10 @@ function execute_tool(string $name, array $input, PDO $pdo): array
             return tool_get_unpaid_invoices($pdo, $input);
         case 'get_inactive_customers':
             return tool_get_inactive_customers($pdo, $input);
+        case 'create_appointment':
+            return tool_create_appointment($pdo, $input);
+        case 'get_appointments':
+            return tool_get_appointments($pdo, $input);
         case 'navigate_to_page':
             return tool_navigate_to_page($pdo, $input);
         default:
@@ -1643,6 +1709,50 @@ function tool_get_inactive_customers(PDO $pdo, array $input): array
    NAVIGATION
 =================================================== */
 
+function tool_create_appointment(PDO $pdo, array $input): array
+{
+    $title = trim($input['title'] ?? '');
+    $date = trim($input['date'] ?? '');
+    $start_time = trim($input['start_time'] ?? '');
+    $duration_minutes = (int)($input['duration_minutes'] ?? 60);
+    $location = trim($input['location'] ?? '');
+    $notes = trim($input['notes'] ?? '');
+
+    if ($title === '' || $date === '' || $start_time === '') {
+        return ['error' => 'title, date, and start_time are all required'];
+    }
+
+    $start_datetime = $date . ' ' . $start_time . ':00';
+    $end_datetime = date('Y-m-d H:i:s', strtotime($start_datetime . " +{$duration_minutes} minutes"));
+
+    $result = google_create_event($pdo, $title, $notes, $start_datetime, $end_datetime, $location);
+
+    if (!$result['success']) {
+        return ['error' => $result['error']];
+    }
+
+    return [
+        'booked'    => true,
+        'title'     => $title,
+        'date'      => $date,
+        'time'      => $start_time,
+        'event_link' => $result['event_link'],
+    ];
+}
+
+function tool_get_appointments(PDO $pdo, array $input): array
+{
+    $days_ahead = (int)($input['days_ahead'] ?? 1);
+
+    $events = google_list_events($pdo, 'now', "+{$days_ahead} days");
+
+    if (empty($events)) {
+        return ['appointments' => [], 'message' => 'No appointments found in that period.'];
+    }
+
+    return ['appointments' => $events];
+}
+
 function tool_navigate_to_page(PDO $pdo, array $input): array
 {
     $page_map = [
@@ -1652,6 +1762,7 @@ function tool_navigate_to_page(PDO $pdo, array $input): array
         'create_quote' => 'create/index.php',
         'quotations'   => 'view/list.php',
         'invoices'     => 'invoices/list.php',
+        'appointments' => 'appointments/index.php',
     ];
 
     $page = $input['page'] ?? '';
